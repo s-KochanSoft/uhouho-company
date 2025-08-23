@@ -1,0 +1,70 @@
+.header {
+  height: var(--header-h);
+  background: #111;
+  border-bottom: 3px solid #222;
+
+  position: fixed;   /* 常に上に固定 */
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+}
+
+.inner {
+  height: 100%;
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.logoLink { display: flex; align-items: center; }
+
+/* ロゴはヘッダー高にフィットさせてデカく */
+.logoBox {
+  position: relative;
+  height: calc(var(--header-h) - 16px);
+  width:  calc(var(--header-h) - 16px);
+}
+.logoImg { object-fit: contain; }
+
+/* ナビ：ファミコン風ボタン */
+.nav { display: flex; gap: 24px; }
+
+.btn {
+  padding: 10px 18px;
+  border: 3px solid #222;
+  border-radius: 2px;
+  background: #b40000; /* ファミコン赤 */
+  color: #fff;
+  font-weight: bold;
+  font-size: 12px;
+  text-decoration: none;
+  box-shadow: 4px 4px 0 #222;
+  transition: transform .05s, box-shadow .05s, background .05s;
+}
+.btn:hover {
+  background: #ff3030;
+  box-shadow: 2px 2px 0 #222;
+  transform: translate(2px, 2px);
+}
+
+/* ★ 特別な「Request Consultation」ボタン */
+.ctaBtn {
+  padding: 10px 20px;
+  border: 3px solid #222;
+  border-radius: 2px;
+  background: #ffcc00; /* ファミコンのSTARTボタン風 黄色 */
+  color: #000;
+  font-weight: bold;
+  font-size: 13px;
+  text-decoration: none;
+  box-shadow: 4px 4px 0 #222;
+  margin-left: 16px; /* 他のボタンより少し間隔をあける */
+  transition: transform .05s, box-shadow .05s, background .05s;
+}
+.ctaBtn:hover {
+  background: #ffee55;
+  box-shadow: 2px 2px 0 #222;
+  transform: translate(2px, 2px);
+}

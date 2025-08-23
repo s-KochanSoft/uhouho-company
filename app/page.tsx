@@ -1,103 +1,148 @@
+// app/page.tsx
+import Link from "next/link";
 import Image from "next/image";
+import Hero from "@/components/Hero";
+
+// HOME に載せるダイジェスト群（コピー&ペーストでOK）
+// - ServicesPreview: サービス抜粋
+// - NewsHighlight: ニュース3件
+// - ClientLogos: ダミーの実績ロゴ
+// - CTA: お問い合わせ誘導
+
+function ServicesPreview() {
+  const items = [
+    { title: "Web / LP", desc: "Next.js + Tailwindで高速＆SEO対応。運用しやすい構成。" },
+    { title: "Game / App", desc: "小さく速い試作から本番まで。遊び心あるUIも。" },
+    { title: "Automation", desc: "SaaS連携やスクリプトで業務を自動化。" },
+  ];
+  return (
+    <section className="mt-12 sm:mt-16">
+      <div className="mx-auto max-w-6xl">
+        <h2 className="text-xl font-black tracking-wide mb-4">
+          SERVICES <span className="text-lime-300">//</span> 事業内容
+        </h2>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+          {items.map((s, i) => (
+            <article key={i} className="rounded-none border-[3px] border-neutral-800 bg-neutral-900 p-6 shadow-[4px_4px_0_0_#1f2937]">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="inline-block h-4 w-4 bg-lime-400 shadow-[2px_2px_0_0_#111]" />
+                <h3 className="font-black tracking-wide">{s.title}</h3>
+              </div>
+              <p className="text-sm text-neutral-300 leading-relaxed">{s.desc}</p>
+            </article>
+          ))}
+        </div>
+        <div className="mt-4 text-right">
+          <Link href="/services" className="underline decoration-lime-400/70 underline-offset-4 hover:decoration-lime-300 text-sm">
+            もっと見る →
+          </Link>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function NewsHighlight() {
+  const news = [
+    { date: "2025-08-20", title: "サイトβ公開", href: "/news/site-beta-and-style" },
+    { date: "2025-08-18", title: "フォーム改善", href: "/news/contact-form-update" },
+    { date: "2025-08-15", title: "会社情報追加", href: "/news/company-page-added" },
+  ];
+  return (
+    <section className="mt-12">
+      <div className="mx-auto max-w-6xl">
+        <h2 className="text-xl font-black tracking-wide mb-4">
+          LATEST NEWS <span className="text-lime-300">//</span> お知らせ
+        </h2>
+        <ul className="space-y-2 text-sm">
+          {news.map((n, i) => (
+            <li key={i} className="flex items-center justify-between gap-3 border-b border-neutral-800 pb-2">
+              <Link href={n.href} className="hover:underline decoration-lime-400/70 underline-offset-4">
+                {n.title}
+              </Link>
+              <time className="text-neutral-500">{new Date(n.date).toLocaleDateString("ja-JP")}</time>
+            </li>
+          ))}
+        </ul>
+        <div className="mt-4 text-right">
+          <Link href="/news" className="underline decoration-lime-400/70 underline-offset-4 hover:decoration-lime-300 text-sm">
+            すべて見る →
+          </Link>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function ClientLogos() {
+  // 画像がなければダミーボックスを表示（/public/client-*.png を置けば自動で差し替え可能）
+  const logos = [
+    { src: "/logo.png", alt: "Client A" },
+    { src: "/logo.png", alt: "Client B" },
+    { src: "/logo.png", alt: "Client C" },
+    { src: "/logo.png", alt: "Client D" },
+    { src: "/logo.png", alt: "Client E" },
+    { src: "/logo.png", alt: "Client F" },
+  ];
+  return (
+    <section className="mt-12">
+      <div className="mx-auto max-w-6xl">
+        <h2 className="text-xl font-black tracking-wide mb-4">
+          HIGHLIGHTS <span className="text-lime-300">//</span> 実績
+        </h2>
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4">
+          {logos.map((l, i) => (
+            <div key={i} className="relative h-16 bg-neutral-900 border-[3px] border-neutral-800 shadow-[4px_4px_0_0_#1f2937] grid place-items-center">
+              {/* 画像が存在するならImageを表示。無ければLOGOテキスト */}
+              
+              {l.src ? (
+                <Image src={l.src} alt={l.alt} fill className="object-contain p-2" />
+              ) : (
+                <span className="text-neutral-500 text-xs">LOGO</span>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function CTA() {
+  return (
+    <section className="mt-16 mb-16">
+      <div className="mx-auto max-w-6xl rounded-none border-[3px] border-neutral-800 bg-neutral-900 p-8 text-center shadow-[6px_6px_0_0_#1f2937]">
+        <h2 className="text-2xl font-black mb-2 tracking-wide">Let’s build something fun & fast</h2>
+        <p className="text-neutral-300 text-sm mb-4">小さく作って、早く学ぶ。成果が出るまで伴走します。</p>
+        <Link
+          href="/contact"
+          className="inline-flex items-center justify-center rounded-none border-[3px] border-neutral-800 bg-lime-400 px-6 py-3 font-extrabold text-neutral-900 shadow-[4px_4px_0_0_#1f2937] hover:translate-x-[1px] hover:translate-y-[1px]"
+        >
+          お問い合わせ
+        </Link>
+      </div>
+    </section>
+  );
+}
 
 export default function Home() {
   return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+    <main className="min-h-[100svh] bg-neutral-950 text-neutral-50">
+      {/* 背景スキャンライン（クリック不可） */}
+      <div
+        aria-hidden
+        className="pointer-events-none fixed inset-0 z-0 opacity-10 mix-blend-soft-light [background:repeating-linear-gradient(0deg,transparent_0_2px,rgba(255,255,255,.12)_2px_3px)]"
+      />
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+      <div className="relative z-10 px-4">
+        <div className="mx-auto max-w-6xl">
+          <Hero />
+          <ServicesPreview />
+          <NewsHighlight />
+          <ClientLogos />
+          <CTA />
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+      </div>
+    </main>
   );
 }

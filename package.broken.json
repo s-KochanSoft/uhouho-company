@@ -1,0 +1,5 @@
+"scripts": {
+  "dev": "next dev",      // ← --turbopack を削除
+  "build": "next build",
+  "start": "next start"
+}

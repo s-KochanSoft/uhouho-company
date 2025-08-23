@@ -1,16 +1,18 @@
+
 @import "tailwindcss";
+
 
 :root {
   --background: #ffffff;
   --foreground: #171717;
 }
 
-@theme inline {
+/* @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
+} */
 
 @media (prefers-color-scheme: dark) {
   :root {
@@ -23,4 +25,45 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+/* 高さを100%にして全体を縦レイアウトにする */
+html, body {
+  height: 100%;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* main が余白を全部埋めるようにする */
+main {
+  flex: 1;
+}
+
+html, body {
+  height: 100%;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+}
+main { flex: 1; } /* → Hero が常にフッターより上に来る */
+
+
+:root{
+  /* 実際の見た目に合わせて後で数値は調整OK */
+  --header-h: 96px;  /* ヘッダーの高さ（ロゴもここに合わせて拡大） */
+  --footer-h: 64px;  /* フッターの高さ */
+}
+
+/* フッター貼り付きの下地（既にあればOK） */
+html, body { height:100%; margin:0; display:flex; flex-direction:column; }
+main { flex:1; }
+main {
+  margin-top: var(--header-h); /* ヘッダーの高さ分だけ下げる */
+}
+
+:target::before {
+  content: "";
+  display: block;
+  height: 100px;  /* 固定ヘッダーの高さに合わせる */
+  margin-top: -80px;
 }

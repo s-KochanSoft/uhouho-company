@@ -1,0 +1,75 @@
+/* components/Hero.module.css */
+
+.hero {
+  /* 画面いっぱい（ヘッダー/フッター差し引き） */
+  --header: var(--header, 0px);
+  --footer: var(--footer, 0px);
+  height: calc(100svh - var(--header) - var(--footer));
+
+  /* ここが肝：Grid 2カラムで分離。重なりゼロにする */
+  display: grid;
+  grid-template-columns: 1fr min(42vw, 720px); /* 左=テキスト / 右=画像の幅上限 */
+  align-items: center;
+  column-gap: clamp(16px, 4vw, 48px);
+
+  background: #0a0a0a;
+  color: #fff;
+  overflow: hidden;
+  padding: clamp(24px, 5vw, 72px);
+}
+
+/* 左テキスト：常に左寄せ＆可視（画像より前面に） */
+.copy {
+  z-index: 1;
+  justify-self: start;      /* ← 左寄せ */
+  max-width: 60ch;          /* 行の伸びを抑制（7行化対策） */
+}
+
+.title {
+  margin: 0 0 clamp(12px, 2vw, 20px);
+  font-weight: 900;
+  line-height: 1.05;
+  letter-spacing: .02em;
+  /* 大きいけど折れすぎないレンジに */
+  font-size: clamp(2.6rem, 5.2vw + 1rem, 5.2rem);
+}
+
+.lead {
+  margin: 0;
+  color: #c8c8c8;
+  max-width: 40ch;          /* ここで行数暴れを止める */
+  font-size: clamp(.95rem, .8vw + .8rem, 1.25rem);
+  line-height: 1.6;
+}
+
+/* 右の画像：オーバーレイ禁止。単なる “右カラムの箱” にする */
+.visualWrap {
+  position: relative;        /* ← absolute を使わない（重なりの元） */
+  height: 100%;              /* Gridの行高いっぱい */
+  width: 100%;
+  justify-self: end;         /* 右端に寄せる */
+}
+
+/* 画像は比率維持で最大化、右寄せ */
+.visual {
+  object-fit: contain;       /* 切り抜きなし */
+  object-position: right center;
+}
+
+/* スマホは縦積みで安全運用（重なりゼロ） */
+@media (max-width: 640px) {
+  .hero {
+    grid-template-columns: 1fr;
+    row-gap: clamp(16px, 40vw, 720px);
+  }
+  .visualWrap {
+    height: min(52vh, 480px);
+    width: 100%;
+    justify-self: center;
+  }
+  .copy {
+    max-width: 100%;
+  }
+  .title { font-size: clamp(2.2rem, 8vw + .6rem, 3.4rem); }
+  .lead  { max-width: 48ch; }
+}
