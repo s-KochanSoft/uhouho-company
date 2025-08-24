@@ -1,0 +1,16 @@
+version: "3.9"
+services:
+  web:
+    image: node:18-bullseye
+    working_dir: /app
+    volumes:
+      - .:/app              # ホストのソースをマウント
+      - /app/node_modules   # node_modules はコンテナ側に分離
+    command: sh -c "npm install && next dev -p 3000"
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - CHOKIDAR_USEPOLLING=1
+      - WATCHPACK_POLLING=true
+      - NEXT_TELEMETRY_DISABLED=1
