@@ -1,5 +1,5 @@
 # --- Builder stage ---
-FROM node:18-bullseye AS builder
+FROM node:20-alpine AS builder
 WORKDIR /app
 
 # 依存だけ先にインストール
@@ -13,7 +13,7 @@ COPY . .
 RUN npm run build
 
 # --- Runner stage ---
-FROM node:18-bullseye AS runner
+FROM node:20-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
@@ -26,4 +26,4 @@ COPY --from=builder /app/public ./public
 EXPOSE 3000
 
 # npm script 経由で起動
-CMD ["npm","run","start"]
+CMD ["node", "server.js"]
