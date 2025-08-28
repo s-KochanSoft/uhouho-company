@@ -20,7 +20,7 @@ function ServicesPreview() {
     <section className="mt-12 sm:mt-16">
       <div className="mx-auto max-w-6xl">
         <h2 className="text-xl font-black tracking-wide mb-4">
-          SERVICES <span className="text-lime-300">//</span> 事業内容
+          SERVICES <span className="text-lime-300">{'//'}</span> 事業内容
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
           {items.map((s, i) => (
@@ -59,7 +59,7 @@ function NewsHighlight() {
     <section className="mt-12">
       <div className="mx-auto max-w-6xl">
         <h2 className="text-xl font-black tracking-wide mb-4">
-          LATEST NEWS <span className="text-lime-300">//</span> お知らせ
+          LATEST NEWS <span className="text-lime-300">{'//'}</span> お知らせ
         </h2>
         <ul className="space-y-2 text-sm">
           {news.map((n, i) => (
@@ -106,7 +106,7 @@ function ClientLogos() {
     <section className="mt-12">
       <div className="mx-auto max-w-6xl">
         <h2 className="text-xl font-black tracking-wide mb-4">
-          HIGHLIGHTS <span className="text-lime-300">//</span> 実績
+          HIGHLIGHTS <span className="text-lime-300">{'//'}</span> 実績
         </h2>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4">
           {logos.map((l, i) => (

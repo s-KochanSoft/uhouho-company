@@ -41,8 +41,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
     return NextResponse.json({ message: data }, { status: 201 })
-  } catch (e: any) {
-    // Zodのバリデーションエラーなど
-    return NextResponse.json({ error: e.message ?? 'Invalid payload' }, { status: 400 })
-  }
+ } catch (e: unknown) {
+  const message = e instanceof Error ? e.message : 'Invalid payload'
+  return NextResponse.json({ error: message }, { status: 400 })
+}
 }
