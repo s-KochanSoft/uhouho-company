@@ -1,0 +1,17 @@
+services:
+  web:
+    image: node:20-bookworm-slim
+    working_dir: /app
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/app:delegated       # ← ソースだけをマウント
+      - /app/node_modules      # ← 匿名ボリュームで node_modules をコンテナ専用に
+    environment:
+      - NEXT_TELEMETRY_DISABLED=1
+    command: >
+      sh -lc "
+        corepack enable || true &&
+        npm ci &&
+        npm run dev
+      "

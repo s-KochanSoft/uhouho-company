@@ -2,6 +2,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import Hero from "@/components/Hero";
+import RealtimeBoard from "@/components/RealtimeBoard";
 
 // HOME に載せるダイジェスト群（コピー&ペーストでOK）
 // - ServicesPreview: サービス抜粋
@@ -23,7 +24,10 @@ function ServicesPreview() {
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
           {items.map((s, i) => (
-            <article key={i} className="rounded-none border-[3px] border-neutral-800 bg-neutral-900 p-6 shadow-[4px_4px_0_0_#1f2937]">
+            <article
+              key={i}
+              className="rounded-none border-[3px] border-neutral-800 bg-neutral-900 p-6 shadow-[4px_4px_0_0_#1f2937]"
+            >
               <div className="flex items-center gap-2 mb-2">
                 <span className="inline-block h-4 w-4 bg-lime-400 shadow-[2px_2px_0_0_#111]" />
                 <h3 className="font-black tracking-wide">{s.title}</h3>
@@ -33,7 +37,10 @@ function ServicesPreview() {
           ))}
         </div>
         <div className="mt-4 text-right">
-          <Link href="/services" className="underline decoration-lime-400/70 underline-offset-4 hover:decoration-lime-300 text-sm">
+          <Link
+            href="/services"
+            className="underline decoration-lime-400/70 underline-offset-4 hover:decoration-lime-300 text-sm"
+          >
             もっと見る →
           </Link>
         </div>
@@ -56,16 +63,27 @@ function NewsHighlight() {
         </h2>
         <ul className="space-y-2 text-sm">
           {news.map((n, i) => (
-            <li key={i} className="flex items-center justify-between gap-3 border-b border-neutral-800 pb-2">
-              <Link href={n.href} className="hover:underline decoration-lime-400/70 underline-offset-4">
+            <li
+              key={i}
+              className="flex items-center justify-between gap-3 border-b border-neutral-800 pb-2"
+            >
+              <Link
+                href={n.href}
+                className="hover:underline decoration-lime-400/70 underline-offset-4"
+              >
                 {n.title}
               </Link>
-              <time className="text-neutral-500">{new Date(n.date).toLocaleDateString("ja-JP")}</time>
+              <time className="text-neutral-500">
+                {new Date(n.date).toLocaleDateString("ja-JP")}
+              </time>
             </li>
           ))}
         </ul>
         <div className="mt-4 text-right">
-          <Link href="/news" className="underline decoration-lime-400/70 underline-offset-4 hover:decoration-lime-300 text-sm">
+          <Link
+            href="/news"
+            className="underline decoration-lime-400/70 underline-offset-4 hover:decoration-lime-300 text-sm"
+          >
             すべて見る →
           </Link>
         </div>
@@ -92,9 +110,11 @@ function ClientLogos() {
         </h2>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4">
           {logos.map((l, i) => (
-            <div key={i} className="relative h-16 bg-neutral-900 border-[3px] border-neutral-800 shadow-[4px_4px_0_0_#1f2937] grid place-items-center">
+            <div
+              key={i}
+              className="relative h-16 bg-neutral-900 border-[3px] border-neutral-800 shadow-[4px_4px_0_0_#1f2937] grid place-items-center"
+            >
               {/* 画像が存在するならImageを表示。無ければLOGOテキスト */}
-              
               {l.src ? (
                 <Image src={l.src} alt={l.alt} fill className="object-contain p-2" />
               ) : (
@@ -113,7 +133,9 @@ function CTA() {
     <section className="mt-16 mb-16">
       <div className="mx-auto max-w-6xl rounded-none border-[3px] border-neutral-800 bg-neutral-900 p-8 text-center shadow-[6px_6px_0_0_#1f2937]">
         <h2 className="text-2xl font-black mb-2 tracking-wide">Let’s build something fun & fast</h2>
-        <p className="text-neutral-300 text-sm mb-4">小さく作って、早く学ぶ。成果が出るまで伴走します。</p>
+        <p className="text-neutral-300 text-sm mb-4">
+          小さく作って、早く学ぶ。成果が出るまで伴走します。
+        </p>
         <Link
           href="/contact"
           className="inline-flex items-center justify-center rounded-none border-[3px] border-neutral-800 bg-lime-400 px-6 py-3 font-extrabold text-neutral-900 shadow-[4px_4px_0_0_#1f2937] hover:translate-x-[1px] hover:translate-y-[1px]"
@@ -137,6 +159,12 @@ export default function Home() {
       <div className="relative z-10 px-4">
         <div className="mx-auto max-w-6xl">
           <Hero />
+
+          {/* ▼ HEROの直下：リアルタイム掲示板 */}
+          <div className="mt-10">
+            <RealtimeBoard />
+          </div>
+
           <ServicesPreview />
           <NewsHighlight />
           <ClientLogos />
