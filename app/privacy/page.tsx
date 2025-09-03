@@ -20,7 +20,7 @@ export default function PrivacyPage() {
         {/* ヘッダー */}
         <header className="mb-8">
           <h1 className="font-black text-2xl sm:text-3xl tracking-wide">
-            PRIVACY POLICY <span className="text-lime-300">//</span> プライバシーポリシー
+            PRIVACY POLICY <span className="text-lime-300">{"//"}</span> プライバシーポリシー
           </h1>
           <p className="mt-2 text-sm text-neutral-400">最終更新日：2025-08-23</p>
         </header>

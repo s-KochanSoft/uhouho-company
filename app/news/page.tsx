@@ -49,7 +49,7 @@ export default function NewsPage() {
         {/* HERO */}
         <section className="pt-12 sm:pt-16 text-center">
           <h1 className="text-3xl sm:text-4xl font-black tracking-wide">
-            NEWS <span className="text-lime-300">//</span> お知らせ
+            NEWS <span className="text-lime-300">{"//"}</span> お知らせ
           </h1>
           
         </section>

@@ -52,7 +52,7 @@ export default function CompanyPage() {
         <section className="mt-12 grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 rounded-none border-[3px] border-neutral-800 bg-neutral-900 p-6 shadow-[4px_4px_0_0_#1f2937]">
             <h2 id="about" className="scroll-mt-24 text-xl font-black mb-3 tracking-wide">
-              ABOUT <span className="text-lime-300">//</span> 会社概要
+              ABOUT <span className="text-lime-300">{"//"}</span> 会社概要
             </h2>
             <dl className="grid grid-cols-1 sm:grid-cols-3 gap-x-6 gap-y-3 text-sm">
               <dt className="text-neutral-400">会社名</dt>
@@ -85,7 +85,7 @@ export default function CompanyPage() {
         {/* Services */}
         <section id="services" className="mt-12">
           <h2 className="scroll-mt-24 text-xl font-black mb-4 tracking-wide">
-            SERVICES <span className="text-lime-300">//</span> 事業内容
+            SERVICES <span className="text-lime-300">{"//"}</span> 事業内容
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
             {[
@@ -108,7 +108,7 @@ export default function CompanyPage() {
         {/* 実績ハイライト（ダミー）*/}
         <section className="mt-12">
           <h2 className="scroll-mt-24 text-xl font-black mb-4 tracking-wide">
-            HIGHLIGHTS <span className="text-lime-300">//</span> 実績ハイライト
+            HIGHLIGHTS <span className="text-lime-300">{"//"}</span> 実績ハイライト
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
             {[
@@ -127,7 +127,7 @@ export default function CompanyPage() {
         {/* Team （写真がなければイニシャル）*/}
         <section className="mt-12">
           <h2 className="scroll-mt-24 text-xl font-black mb-4 tracking-wide">
-            TEAM <span className="text-lime-300">//</span> メンバー
+            TEAM <span className="text-lime-300">{"//"}</span> メンバー
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {[
@@ -158,7 +158,7 @@ export default function CompanyPage() {
         {/* 沿革（ダミー）*/}
         <section className="mt-12">
           <h2 className="scroll-mt-24 text-xl font-black mb-4 tracking-wide">
-            HISTORY <span className="text-lime-300">//</span> 沿革
+            HISTORY <span className="text-lime-300">{"//"}</span> 沿革
           </h2>
           <ol className="relative border-s-2 border-neutral-800 pl-6 space-y-4">
             {[

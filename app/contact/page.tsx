@@ -63,7 +63,7 @@ export default function ContactPage() {
         <div className="mb-8 flex items-center justify-center gap-3">
           <Image src="/logo.png" alt="UHOUHO Company" width={48} height={48} className="select-none" />
           <h1 className="font-black text-2xl sm:text-3xl tracking-wide">
-            CONTACT <span className="text-lime-300">//</span> UHOUHO
+            CONTACT <span className="text-lime-300">{"//"}</span> UHOUHO
           </h1>
         </div>
 

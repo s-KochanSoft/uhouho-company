@@ -21,7 +21,7 @@ export default function ServicesPage() {
         {/* HERO */}
         <section className="pt-12 sm:pt-16 text-center">
           <h1 className="text-3xl sm:text-4xl font-black tracking-wide">
-            SERVICES <span className="text-lime-300">//</span> サービス一覧
+            SERVICES <span className="text-lime-300">{"//"}</span> サービス一覧
           </h1>
           <p className="mt-3 text-neutral-300 max-w-2xl mx-auto text-sm">
             いまはプレースホルダーです。詳細は <Link href="/contact" className="underline decoration-lime-400/70 underline-offset-4 hover:decoration-lime-300">お問い合わせ</Link> ください。
@@ -82,7 +82,7 @@ export default function ServicesPage() {
         {/* FAQ（ダミー） */}
         <section className="mt-12">
           <h2 className="text-xl font-black tracking-wide mb-4">
-            FAQ <span className="text-lime-300">//</span> よくある質問（ダミー）
+            FAQ <span className="text-lime-300">{"//"}</span> よくある質問（ダミー）
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {[
