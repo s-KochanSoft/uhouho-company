@@ -6,11 +6,8 @@ export const revalidate = 0;              // キャッシュしない
 import Link from "next/link";
 import Image from "next/image";
 import Hero from "@/components/Hero";
-// RealtimeBoard は SSR を完全に切る（ビルド時に評価させない）
-import dynamicImport from "next/dynamic";
-const RealtimeBoard = dynamicImport(() => import("@/components/RealtimeBoard"), {
-  ssr: false,
-});
+// ★ Server Component 側では next/dynamic を使わない
+import RealtimeBoardWrapper from "@/components/RealtimeBoardWrapper";
 
 function ServicesPreview() {
   const items = [
@@ -163,7 +160,7 @@ export default function Home() {
 
           {/* ▼ HEROの直下：リアルタイム掲示板（クライアント側のみ描画） */}
           <div className="mt-10">
-            <RealtimeBoard />
+            <RealtimeBoardWrapper />
           </div>
 
           <ServicesPreview />
