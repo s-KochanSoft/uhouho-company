@@ -7,8 +7,8 @@ import Link from "next/link";
 import Image from "next/image";
 import Hero from "@/components/Hero";
 // RealtimeBoard は SSR を完全に切る（ビルド時に評価させない）
-import dynamic from "next/dynamic";
-const RealtimeBoard = dynamic(() => import("@/components/RealtimeBoard"), {
+import dynamicImport from "next/dynamic";
+const RealtimeBoard = dynamicImport(() => import("@/components/RealtimeBoard"), {
   ssr: false,
 });
 
