@@ -1,25 +1,24 @@
 # --- Builder stage ---
-FROM node:20-alpine AS builder
+FROM node:20-bookworm-slim AS builder
 WORKDIR /app
 
-# 依存インストール（package.json と lock を先に）
+# 依存インストール
 COPY package.json package-lock.json ./
 RUN npm ci
 
-# 残りのソースをコピー
+# ソースをコピーして本番ビルド
 COPY . ./
-
-# Next.js 本番ビルド（lint で止めたくない場合は next.config で ignoreDuringBuilds を設定）
 RUN npm run build
 
 # --- Runner stage ---
-FROM node:20-alpine AS runner
+FROM node:20-bookworm-slim AS runner
 WORKDIR /app
+
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
-ENV PORT=3000
+# ★ ここで PORT は設定しない（Render が注入する PORT を使う）
 
-# standalone 構成をコピー
+# standalone 出力を配置
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/static ./.next/static
