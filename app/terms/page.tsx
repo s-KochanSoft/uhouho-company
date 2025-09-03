@@ -20,7 +20,7 @@ export default function TermsPage() {
         {/* ヘッダー */}
         <header className="mb-8">
           <h1 className="font-black text-2xl sm:text-3xl tracking-wide">
-            TERMS OF USE <span className="text-lime-300">//</span> 利用規約
+            TERMS OF USE <span className="text-lime-300">{"//"}</span> 利用規約
           </h1>
           <p className="mt-2 text-sm text-neutral-400">
             最終更新日：2025-08-23
