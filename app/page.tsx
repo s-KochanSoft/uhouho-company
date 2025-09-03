@@ -1,14 +1,16 @@
 // app/page.tsx
+export const runtime = "nodejs";          // SDK対策
+export const dynamic = "force-dynamic";   // 事前静的化をオフ（prerender回避）
+export const revalidate = 0;              // キャッシュしない
+
 import Link from "next/link";
 import Image from "next/image";
 import Hero from "@/components/Hero";
-import RealtimeBoard from "@/components/RealtimeBoard";
-
-// HOME に載せるダイジェスト群（コピー&ペーストでOK）
-// - ServicesPreview: サービス抜粋
-// - NewsHighlight: ニュース3件
-// - ClientLogos: ダミーの実績ロゴ
-// - CTA: お問い合わせ誘導
+// RealtimeBoard は SSR を完全に切る（ビルド時に評価させない）
+import dynamic from "next/dynamic";
+const RealtimeBoard = dynamic(() => import("@/components/RealtimeBoard"), {
+  ssr: false,
+});
 
 function ServicesPreview() {
   const items = [
@@ -20,7 +22,7 @@ function ServicesPreview() {
     <section className="mt-12 sm:mt-16">
       <div className="mx-auto max-w-6xl">
         <h2 className="text-xl font-black tracking-wide mb-4">
-          SERVICES <span className="text-lime-300">{'//'}</span> 事業内容
+          SERVICES <span className="text-lime-300">{"//"}</span> 事業内容
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
           {items.map((s, i) => (
@@ -59,7 +61,7 @@ function NewsHighlight() {
     <section className="mt-12">
       <div className="mx-auto max-w-6xl">
         <h2 className="text-xl font-black tracking-wide mb-4">
-          LATEST NEWS <span className="text-lime-300">{'//'}</span> お知らせ
+          LATEST NEWS <span className="text-lime-300">{"//"}</span> お知らせ
         </h2>
         <ul className="space-y-2 text-sm">
           {news.map((n, i) => (
@@ -93,7 +95,6 @@ function NewsHighlight() {
 }
 
 function ClientLogos() {
-  // 画像がなければダミーボックスを表示（/public/client-*.png を置けば自動で差し替え可能）
   const logos = [
     { src: "/logo.png", alt: "Client A" },
     { src: "/logo.png", alt: "Client B" },
@@ -106,7 +107,7 @@ function ClientLogos() {
     <section className="mt-12">
       <div className="mx-auto max-w-6xl">
         <h2 className="text-xl font-black tracking-wide mb-4">
-          HIGHLIGHTS <span className="text-lime-300">{'//'}</span> 実績
+          HIGHLIGHTS <span className="text-lime-300">{"//"}</span> 実績
         </h2>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4">
           {logos.map((l, i) => (
@@ -160,7 +161,7 @@ export default function Home() {
         <div className="mx-auto max-w-6xl">
           <Hero />
 
-          {/* ▼ HEROの直下：リアルタイム掲示板 */}
+          {/* ▼ HEROの直下：リアルタイム掲示板（クライアント側のみ描画） */}
           <div className="mt-10">
             <RealtimeBoard />
           </div>
