@@ -1,201 +1,202 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { FC, FormEvent } from "react";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
-type Msg = {
-  id: string;
-  author: string;
-  body: string;
-  created_at?: string;
+// ========= 型 =========
+type Message = {
+  id: string;                // uuid
+  author: string;            // 投稿者名
+  content: string;           // 本文
+  created_at: string;        // ISO文字列
 };
 
-type GetMessagesOK = { messages: Msg[] };
-type ErrorRes = { error: string };
-type PostOK = { message: Msg };
+type FetchMessagesResponse = {
+  data: Message[];
+};
 
-// 型ガード（any 使わず unknown を絞る）
-function getErrorMessage(data: unknown): string | null {
-  if (typeof data === "object" && data !== null && "error" in data) {
-    const v = (data as { error?: unknown }).error;
-    return typeof v === "string" ? v : null;
-  }
-  return null;
-}
-function extractMessages(data: unknown): Msg[] {
-  if (typeof data === "object" && data !== null) {
-    const v = (data as { messages?: unknown }).messages;
-    if (Array.isArray(v)) return v as Msg[];
-  }
-  return [];
-}
-function extractSavedMessage(data: unknown): Msg | null {
-  if (typeof data === "object" && data !== null && "message" in data) {
-    const m = (data as { message?: unknown }).message;
-    if (typeof m === "object" && m !== null) return m as Msg;
-  }
-  return null;
+type RealtimeBoardProps = {
+  /** 初期に取得する件数（新しい順） */
+  initialLimit?: number;
+  /** Supabase のチャンネル名（任意） */
+  channelName?: string;
+};
+
+// ========= Supabase クライアント作成（ブラウザ側） =========
+// NEXT_PUBLIC_ で始まる公開キーを .env に用意しておく想定
+function useSupabase(): SupabaseClient | null {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
+  const client = useMemo(() => {
+    if (!supabaseUrl || !supabaseAnonKey) return null;
+    return createClient(supabaseUrl, supabaseAnonKey);
+  }, [supabaseUrl, supabaseAnonKey]);
+
+  return client;
 }
 
-export default function RealtimeBoard() {
-  const [messages, setMessages] = useState<Msg[]>([]);
-  const [author, setAuthor] = useState("");
-  const [body, setBody] = useState("");
-  const [hp, setHp] = useState(""); // ハニーポット
-  const [loading, setLoading] = useState(true);
-  const [posting, setPosting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+// ========= 本体 =========
+const RealtimeBoard: FC<RealtimeBoardProps> = ({
+  initialLimit = 50,
+  channelName = "public:messages",
+}) => {
+  const supabase = useSupabase();
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [author, setAuthor] = useState<string>("");
+  const [content, setContent] = useState<string>("");
+  const [loading, setLoading] = useState<boolean>(false);
+  const listEndRef = useRef<HTMLDivElement | null>(null);
 
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // 初期読み込み
+  useEffect(() => {
+    let cancelled = false;
 
-  // 初回 + 4秒ポーリング
-  const load = async () => {
-    try {
-      const res = await fetch("/api/messages", { cache: "no-store" });
-      const json: unknown = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        const msg = getErrorMessage(json) ?? `Load failed: ${res.status}`;
-        throw new Error(msg);
+    (async () => {
+      try {
+        const res = await fetch(`/api/messages?limit=${initialLimit}`, {
+          method: "GET",
+          headers: { "Content-Type": "application/json" },
+          cache: "no-store",
+        });
+        if (!res.ok) {
+          console.error("Failed to fetch messages:", await res.text());
+          return;
+        }
+        const json = (await res.json()) as FetchMessagesResponse;
+        if (!cancelled) {
+          // 新しい順で返ってきたと仮定し、表示は古い→新しいにしたいなら reverse
+          setMessages([...json.data].sort((a, b) => a.created_at.localeCompare(b.created_at)));
+        }
+      } catch (err) {
+        console.error(err);
       }
-      setMessages(extractMessages(json));
-      setError(null);
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : "読み込みエラー";
-      setError(msg);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [initialLimit]);
+
+  // 自動スクロール
+  useEffect(() => {
+    listEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages.length]);
+
+  // Supabase Realtime 購読
+  useEffect(() => {
+    if (!supabase) return;
+
+    const channel = supabase
+      .channel(channelName)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "messages" },
+        (payload) => {
+          const newRow = payload.new as unknown as Message;
+          setMessages((prev) => [...prev, newRow]);
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "messages" },
+        (payload) => {
+          const updated = payload.new as unknown as Message;
+          setMessages((prev) => prev.map((m) => (m.id === updated.id ? updated : m)));
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "DELETE", schema: "public", table: "messages" },
+        (payload) => {
+          const deleted = payload.old as unknown as { id: string };
+          setMessages((prev) => prev.filter((m) => m.id !== deleted.id));
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [supabase, channelName]);
+
+  // 送信
+  const onSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!author.trim() || !content.trim()) return;
+
+    try {
+      setLoading(true);
+      const res = await fetch("/api/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        cache: "no-store",
+        body: JSON.stringify({ author: author.trim(), content: content.trim() }),
+      });
+
+      if (!res.ok) {
+        console.error("Failed to post message:", await res.text());
+        return;
+      }
+
+      // ここではリアルタイムを頼り、手動でリストへ追加はしない
+      setContent("");
+    } catch (err) {
+      console.error(err);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    load();
-    timerRef.current = setInterval(load, 4000);
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
-  }, []);
-
-  // 投稿
-  const submit = async () => {
-    if (!author.trim() || !body.trim()) return;
-    if (posting) return;
-    setPosting(true);
-    try {
-      const res = await fetch("/api/messages", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          author: author.trim().slice(0, 24),
-          body: body.trim().slice(0, 500),
-          hp, // 人間は空のまま
-        }),
-      });
-      const json: unknown = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        const msg = getErrorMessage(json) ?? "投稿に失敗しました";
-        throw new Error(msg);
-      }
-
-      const saved = extractSavedMessage(json);
-      if (saved) {
-        setMessages((prev) => [saved, ...prev]);
-      } else {
-        await load(); // 念のため再取得
-      }
-      setBody("");
-      setError(null);
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : "投稿に失敗しました";
-      setError(msg);
-    } finally {
-      setPosting(false);
-    }
-  };
-
   return (
-    <section className="rounded-none border-[3px] border-neutral-800 bg-neutral-900 p-4 shadow-[6px_6px_0_0_#1f2937]">
-      <h2 className="text-lg font-extrabold tracking-wide">
-        BOARD <span className="text-lime-300">{"//"}</span> リアルタイム掲示板
-      </h2>
+    <div className="mx-auto max-w-2xl w-full p-4">
+      <h2 className="text-xl font-bold mb-3">Realtime Board</h2>
 
-      {/* 投稿フォーム */}
-      <div className="mt-4 grid grid-cols-1 sm:grid-cols-[160px_1fr_auto] gap-2 relative">
-        <input
-          type="text"
-          placeholder="おなまえ（必須）"
-          className="rounded-none border-[3px] border-neutral-800 bg-neutral-950 px-3 py-2 text-sm"
-          value={author}
-          onChange={(e) => setAuthor(e.target.value)}
-          maxLength={24}
-        />
-        <input
-          type="text"
-          placeholder="メッセージ（必須）"
-          className="rounded-none border-[3px] border-neutral-800 bg-neutral-950 px-3 py-2 text-sm"
-          value={body}
-          onChange={(e) => setBody(e.target.value)}
-          maxLength={500}
-        />
-        <button
-          onClick={submit}
-          disabled={posting || !author.trim() || !body.trim()}
-          className="rounded-none border-[3px] border-neutral-800 bg-lime-400 px-4 py-2 font-extrabold text-neutral-900 shadow-[4px_4px_0_0_#1f2937] disabled:opacity-50"
-        >
-          {posting ? "送信中..." : "送信"}
-        </button>
-
-        {/* ハニーポット：画面外に配置 */}
-        <div
-          aria-hidden
-          className="absolute -left-[9999px] top-auto h-0 w-0 overflow-hidden"
-        >
-          <label htmlFor="hp">HP</label>
-          <input
-            id="hp"
-            name="hp"
-            type="text"
-            autoComplete="off"
-            tabIndex={-1}
-            value={hp}
-            onChange={(e) => setHp(e.target.value)}
-          />
-        </div>
-      </div>
-
-      {/* エラー表示 */}
-      {error && (
-        <div className="mt-3 text-sm text-red-400 border border-red-500/40 p-2 bg-red-950/30 rounded">
-          {error}
-        </div>
-      )}
-
-      {/* メッセージ一覧 */}
-      <div className="mt-4">
-        {loading ? (
-          <div className="text-sm text-neutral-400">読み込み中...</div>
-        ) : messages.length === 0 ? (
-          <div className="text-sm text-neutral-400">まだ投稿がありません。</div>
+      <div className="border rounded-lg p-3 h-[60vh] overflow-y-auto bg-white/60 dark:bg-black/30">
+        {messages.length === 0 ? (
+          <p className="text-sm opacity-70">まだ投稿はありません。</p>
         ) : (
           <ul className="space-y-2">
             {messages.map((m) => (
-              <li
-                key={m.id}
-                className="border-[3px] border-neutral-800 bg-neutral-950 p-3 shadow-[4px_4px_0_0_#1f2937]"
-              >
-                <div className="text-xs text-neutral-500">
-                  {m.created_at
-                    ? new Date(m.created_at).toLocaleString("ja-JP")
-                    : ""}
+              <li key={m.id} className="border rounded-md p-2">
+                <div className="text-xs opacity-70">
+                  {new Date(m.created_at).toLocaleString()}
                 </div>
-                <div>
-                  <span className="font-bold">{m.author}</span>
-                  <span className="mx-2 text-neutral-600">{"//"}</span>
-                  <span>{m.body}</span>
-                </div>
+                <div className="font-semibold">{m.author}</div>
+                <div className="whitespace-pre-wrap">{m.content}</div>
               </li>
             ))}
           </ul>
         )}
+        <div ref={listEndRef} />
       </div>
-    </section>
+
+      <form onSubmit={onSubmit} className="mt-3 grid grid-cols-1 gap-2">
+        <input
+          type="text"
+          placeholder="Your name"
+          value={author}
+          onChange={(e) => setAuthor(e.target.value)}
+          className="border rounded-md p-2"
+          aria-label="author"
+        />
+        <textarea
+          placeholder="Message"
+          value={content}
+          onChange={(e) => setContent(e.target.value)}
+          className="border rounded-md p-2 h-24"
+          aria-label="content"
+        />
+        <button
+          type="submit"
+          disabled={loading || !author.trim() || !content.trim()}
+          className="rounded-md px-4 py-2 border font-medium disabled:opacity-50"
+        >
+          {loading ? "Posting..." : "Post"}
+        </button>
+      </form>
+    </div>
   );
-}
+};
+
+export default RealtimeBoard;
