@@ -21,20 +21,24 @@ export default function RealtimeBoard() {
 
   // 初回読み込み + 4秒ごとポーリング（簡易リアルタイム）
   const load = async () => {
-    try {
-      const res = await fetch("/api/messages", { cache: "no-store" });
-      if (!res.ok) throw new Error(`Load failed: ${res.status}`);
-      const json = await res.json();
-      const list: Msg[] = json?.messages ?? [];
-      setMessages(list);
-      setError(null);
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : "読み込みエラー";
-      setError(msg);
-    } finally {
-      setLoading(false);
+  try {
+    const res = await fetch("/api/messages", { cache: "no-store" });
+    // ← 先にJSONを読んで、サーバ側の error メッセージを拾う
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const msg = (json && json.error) ? json.error : `Load failed: ${res.status}`;
+      throw new Error(msg);
     }
-  };
+    const list: Msg[] = json?.messages ?? [];
+    setMessages(list);
+    setError(null);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "読み込みエラー";
+    setError(msg);
+  } finally {
+    setLoading(false);
+  }
+};
 
   useEffect(() => {
     load();
