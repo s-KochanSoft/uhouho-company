@@ -2,147 +2,138 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { FC, FormEvent } from "react";
-import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 // ========= 型 =========
 type Message = {
-  id: string;                // uuid
-  author: string;            // 投稿者名
-  content: string;           // 本文
-  created_at: string;        // ISO文字列
+  id: string;
+  author: string;
+  body: string;
+  created_at: string;
 };
 
-type FetchMessagesResponse = {
-  data: Message[];
+type GetMessagesResponse = {
+  messages: Message[];
 };
 
-type RealtimeBoardProps = {
-  /** 初期に取得する件数（新しい順） */
-  initialLimit?: number;
-  /** Supabase のチャンネル名（任意） */
-  channelName?: string;
-};
+type PostMessageResponse =
+  | { message: Message }
+  | { error: string };
 
-// ========= Supabase クライアント作成（ブラウザ側） =========
-// NEXT_PUBLIC_ で始まる公開キーを .env に用意しておく想定
+// ========= Supabase（ブラウザ） =========
 function useSupabase(): SupabaseClient | null {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
-  const client = useMemo(() => {
-    if (!supabaseUrl || !supabaseAnonKey) return null;
-    return createClient(supabaseUrl, supabaseAnonKey);
-  }, [supabaseUrl, supabaseAnonKey]);
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
+  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
+  return useMemo(() => {
+    if (!url || !anon) return null;
+    return createClient(url, anon);
+  }, [url, anon]);
+}
 
-  return client;
+// ========= Cookie から CSRF を読む =========
+function getCookie(name: string): string | null {
+  if (typeof document === "undefined") return null;
+  const m = document.cookie.match(
+    new RegExp(`(?:^|; )${name.replace(/[-./*+?^${}()|[\]\\]/g, "\\$&")}=([^;]*)`)
+  );
+  return m ? decodeURIComponent(m[1]) : null;
 }
 
 // ========= 本体 =========
-const RealtimeBoard: FC<RealtimeBoardProps> = ({
-  initialLimit = 50,
-  channelName = "public:messages",
-}) => {
+const RealtimeBoard: FC = () => {
   const supabase = useSupabase();
   const [messages, setMessages] = useState<Message[]>([]);
-  const [author, setAuthor] = useState<string>("");
-  const [content, setContent] = useState<string>("");
-  const [loading, setLoading] = useState<boolean>(false);
+  const [author, setAuthor] = useState("");
+  const [body, setBody] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [banner, setBanner] = useState<{ type: "error" | "info"; text: string } | null>(null);
   const listEndRef = useRef<HTMLDivElement | null>(null);
 
   // 初期読み込み
   useEffect(() => {
-    let cancelled = false;
-
+    let aborted = false;
     (async () => {
       try {
-        const res = await fetch(`/api/messages?limit=${initialLimit}`, {
-          method: "GET",
-          headers: { "Content-Type": "application/json" },
-          cache: "no-store",
-        });
-        if (!res.ok) {
-          console.error("Failed to fetch messages:", await res.text());
-          return;
+        const res = await fetch("/api/messages", { cache: "no-store" });
+        const json = (await res.json()) as GetMessagesResponse;
+        if (!aborted) {
+          // 旧来の「カードに古→新で表示」へ
+          const ordered = [...(json.messages ?? [])].sort((a, b) =>
+            a.created_at.localeCompare(b.created_at)
+          );
+          setMessages(ordered);
         }
-        const json = (await res.json()) as FetchMessagesResponse;
-        if (!cancelled) {
-          // 新しい順で返ってきたと仮定し、表示は古い→新しいにしたいなら reverse
-          setMessages([...json.data].sort((a, b) => a.created_at.localeCompare(b.created_at)));
-        }
-      } catch (err) {
-        console.error(err);
+      } catch (e) {
+        setBanner({ type: "error", text: "メッセージの取得に失敗しました。" });
       }
     })();
-
     return () => {
-      cancelled = true;
+      aborted = true;
     };
-  }, [initialLimit]);
+  }, []);
 
   // 自動スクロール
   useEffect(() => {
     listEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages.length]);
 
-  // Supabase Realtime 購読
+  // Supabase Realtime
   useEffect(() => {
     if (!supabase) return;
-
     const channel = supabase
-      .channel(channelName)
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "messages" },
-        (payload) => {
-          const newRow = payload.new as unknown as Message;
-          setMessages((prev) => [...prev, newRow]);
-        }
-      )
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "messages" },
-        (payload) => {
-          const updated = payload.new as unknown as Message;
-          setMessages((prev) => prev.map((m) => (m.id === updated.id ? updated : m)));
-        }
-      )
-      .on(
-        "postgres_changes",
-        { event: "DELETE", schema: "public", table: "messages" },
-        (payload) => {
-          const deleted = payload.old as unknown as { id: string };
-          setMessages((prev) => prev.filter((m) => m.id !== deleted.id));
-        }
-      )
+      .channel("public:messages")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, (p) => {
+        const m = p.new as unknown as Message;
+        setMessages((prev) => [...prev, m]);
+      })
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "messages" }, (p) => {
+        const m = p.new as unknown as Message;
+        setMessages((prev) => prev.map((x) => (x.id === m.id ? m : x)));
+      })
+      .on("postgres_changes", { event: "DELETE", schema: "public", table: "messages" }, (p) => {
+        const del = p.old as unknown as { id: string };
+        setMessages((prev) => prev.filter((x) => x.id !== del.id));
+      })
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [supabase, channelName]);
+  }, [supabase]);
 
   // 送信
   const onSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!author.trim() || !content.trim()) return;
+    if (!author.trim() || !body.trim()) return;
 
     try {
       setLoading(true);
+      setBanner(null);
+
+      const csrf = getCookie("board_csrf") ?? "";
       const res = await fetch("/api/messages", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        cache: "no-store",
-        body: JSON.stringify({ author: author.trim(), content: content.trim() }),
+        headers: {
+          "Content-Type": "application/json",
+          "x-board-csrf": csrf,
+        },
+        body: JSON.stringify({ author: author.trim(), body: body.trim() }),
       });
 
       if (!res.ok) {
-        console.error("Failed to post message:", await res.text());
+        const json = (await res.json().catch(() => ({}))) as PostMessageResponse;
+        const msg =
+          "error" in json && json.error
+            ? json.error
+            : `投稿に失敗しました（${res.status}）`;
+        setBanner({ type: "error", text: msg });
         return;
       }
 
-      // ここではリアルタイムを頼り、手動でリストへ追加はしない
-      setContent("");
-    } catch (err) {
-      console.error(err);
+      // Realtime が流れてくるので手動追加は不要
+      setBody("");
+    } catch {
+      setBanner({ type: "error", text: "ネットワークエラーが発生しました。" });
     } finally {
       setLoading(false);
     }
@@ -152,18 +143,34 @@ const RealtimeBoard: FC<RealtimeBoardProps> = ({
     <div className="mx-auto max-w-2xl w-full p-4">
       <h2 className="text-xl font-bold mb-3">Realtime Board</h2>
 
-      <div className="border rounded-lg p-3 h-[60vh] overflow-y-auto bg-white/60 dark:bg-black/30">
+      {banner && (
+        <div
+          className={`mb-3 rounded-md border px-3 py-2 text-sm ${
+            banner.type === "error"
+              ? "border-red-300 bg-red-50 text-red-800 dark:border-red-500/40 dark:bg-red-900/30 dark:text-red-200"
+              : "border-blue-300 bg-blue-50 text-blue-800 dark:border-blue-500/40 dark:bg-blue-900/30 dark:text-blue-200"
+          }`}
+        >
+          {banner.text}
+        </div>
+      )}
+
+      {/* メッセージリスト（旧来風のカード表示） */}
+      <div className="border rounded-lg p-3 h-[60vh] overflow-y-auto bg-white dark:bg-neutral-900">
         {messages.length === 0 ? (
-          <p className="text-sm opacity-70">まだ投稿はありません。</p>
+          <p className="text-sm text-neutral-600 dark:text-neutral-300">まだ投稿はありません。</p>
         ) : (
           <ul className="space-y-2">
             {messages.map((m) => (
-              <li key={m.id} className="border rounded-md p-2">
-                <div className="text-xs opacity-70">
+              <li
+                key={m.id}
+                className="border rounded-md p-2 bg-white text-black dark:bg-neutral-800 dark:text-white"
+              >
+                <div className="text-[11px] opacity-70">
                   {new Date(m.created_at).toLocaleString()}
                 </div>
                 <div className="font-semibold">{m.author}</div>
-                <div className="whitespace-pre-wrap">{m.content}</div>
+                <div className="whitespace-pre-wrap">{m.body}</div>
               </li>
             ))}
           </ul>
@@ -171,29 +178,39 @@ const RealtimeBoard: FC<RealtimeBoardProps> = ({
         <div ref={listEndRef} />
       </div>
 
+      {/* 入力フォーム（見た目を“はっきり”に戻す） */}
       <form onSubmit={onSubmit} className="mt-3 grid grid-cols-1 gap-2">
         <input
           type="text"
           placeholder="Your name"
           value={author}
           onChange={(e) => setAuthor(e.target.value)}
-          className="border rounded-md p-2"
+          className="border rounded-md p-2 bg-white text-black placeholder-neutral-500
+                     focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-900 dark:text-white dark:placeholder-neutral-400"
           aria-label="author"
         />
         <textarea
           placeholder="Message"
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          className="border rounded-md p-2 h-24"
+          value={body}
+          onChange={(e) => setBody(e.target.value)}
+          className="border rounded-md p-2 h-28 bg-white text-black placeholder-neutral-500
+                     focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-900 dark:text-white dark:placeholder-neutral-400"
           aria-label="content"
         />
-        <button
-          type="submit"
-          disabled={loading || !author.trim() || !content.trim()}
-          className="rounded-md px-4 py-2 border font-medium disabled:opacity-50"
-        >
-          {loading ? "Posting..." : "Post"}
-        </button>
+        <div className="flex items-center justify-between">
+          <span className="text-xs text-neutral-600 dark:text-neutral-400">
+            500文字まで。URLは投稿できません。
+          </span>
+          <button
+            type="submit"
+            disabled={loading || !author.trim() || !body.trim()}
+            className="rounded-md px-4 py-2 border font-medium disabled:opacity-50
+                       bg-white text-black hover:bg-neutral-50
+                       dark:bg-gray-900 dark:text-white dark:hover:bg-gray-800"
+          >
+            {loading ? "Posting..." : "Post"}
+          </button>
+        </div>
       </form>
     </div>
   );

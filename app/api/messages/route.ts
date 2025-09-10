@@ -7,66 +7,55 @@ import { randomUUID } from "crypto";
 
 export const runtime = "nodejs";
 
-// ── 設定（Render の Environment で上書き可） ──
+// ── 設定 ──
 const ALLOWED_ORIGINS = new Set<string>([
   "https://uhouho-company.onrender.com",
   "http://localhost:3000",
+  // "https://www.your-domain.com", // ← ここに実オリジンを追加
+  // "https://your-domain.com",
 ]);
 
 const POST_ENABLED = (process.env.BOARD_POST_ENABLED ?? "true") === "true";
-const RL_LIMIT = Number(process.env.BOARD_RL_LIMIT ?? "6"); // 1分あたり/同一IP
+const RL_LIMIT = Number(process.env.BOARD_RL_LIMIT ?? "6");
 const RL_WINDOW_MS = Number(process.env.BOARD_RL_WINDOW_MS ?? "60000");
-const MIN_INTERVAL_MS = Number(process.env.BOARD_MIN_INTERVAL_MS ?? "8000"); // 同一IPの最小間隔
-const GLOBAL_COOLDOWN_MS = Number(process.env.BOARD_GLOBAL_COOLDOWN_MS ?? "1500"); // 全体クールダウン
-const TEXT_WINDOW_MS = Number(
-  process.env.BOARD_TEXT_WINDOW_MS ?? String(15 * 60 * 1000)
-); // 重複チェック窓
-const BLOCK_URLS = (process.env.BOARD_BLOCK_URLS ?? "true") === "true"; // URL含む本文を拒否
+const MIN_INTERVAL_MS = Number(process.env.BOARD_MIN_INTERVAL_MS ?? "8000");
+const GLOBAL_COOLDOWN_MS = Number(process.env.BOARD_GLOBAL_COOLDOWN_MS ?? "1500");
+const TEXT_WINDOW_MS = Number(process.env.BOARD_TEXT_WINDOW_MS ?? String(15 * 60 * 1000));
+const BLOCK_URLS = (process.env.BOARD_BLOCK_URLS ?? "true") === "true";
 const CSRF_COOKIE = "board_csrf";
 const SECURE_COOKIE = process.env.NODE_ENV === "production";
 
-// ── 型 ──
 type RLState = { count: number; resetAt: number; lastAt: number };
 
-// ── グローバル（any なし） ──
 declare global {
   // eslint-disable-next-line no-var
   var __boardRateMap: Map<string, RLState> | undefined;
   // eslint-disable-next-line no-var
   var __boardGlobalAt: number | undefined;
   // eslint-disable-next-line no-var
-  var __boardRecentBodies: Map<string, number> | undefined; // normalizedBody -> expireAt
+  var __boardRecentBodies: Map<string, number> | undefined;
 }
 
 const rateMap: Map<string, RLState> =
   globalThis.__boardRateMap ?? (globalThis.__boardRateMap = new Map());
-
 const recentBodies: Map<string, number> =
-  globalThis.__boardRecentBodies ??
-  (globalThis.__boardRecentBodies = new Map());
+  globalThis.__boardRecentBodies ?? (globalThis.__boardRecentBodies = new Map());
 
-// ── ユーティリティ ──
 function getIp(h: Headers): string {
   const xff = h.get("x-forwarded-for");
   if (xff) return xff.split(",")[0]?.trim() ?? "unknown";
   const xrip = h.get("x-real-ip");
   return xrip ?? "unknown";
 }
-
 function isBrowserFetch(h: Headers): boolean {
-  // 近年のブラウザが自動付与するヘッダで簡易判定
   const sfs = h.get("sec-fetch-site");
   const xrw = h.get("x-requested-with");
   return sfs === "same-origin" || sfs === "same-site" || xrw === "XMLHttpRequest";
 }
-
 function uaBlocked(h: Headers): boolean {
   const ua = h.get("user-agent") || "";
-  return /curl|wget|powershell|httpie|postman|insomnia|python-requests|libwww|okhttp/i.test(
-    ua
-  );
+  return /curl|wget|powershell|httpie|postman|insomnia|python-requests|libwww|okhttp/i.test(ua);
 }
-
 function originAllowed(h: Headers): boolean {
   const origin = h.get("origin");
   const ref = h.get("referer");
@@ -79,10 +68,8 @@ function originAllowed(h: Headers): boolean {
       rOk = false;
     }
   }
-  // どちらか片方でも許可。より厳格にするなら && にする。
   return oOk || rOk;
 }
-
 function checkRateByIp(ip: string): { ok: boolean; retryAfter: number } {
   const now = Date.now();
   const cur = rateMap.get(ip);
@@ -91,10 +78,7 @@ function checkRateByIp(ip: string): { ok: boolean; retryAfter: number } {
     return { ok: true, retryAfter: Math.ceil(RL_WINDOW_MS / 1000) };
   }
   if (now - cur.lastAt < MIN_INTERVAL_MS) {
-    return {
-      ok: false,
-      retryAfter: Math.ceil((MIN_INTERVAL_MS - (now - cur.lastAt)) / 1000),
-    };
+    return { ok: false, retryAfter: Math.ceil((MIN_INTERVAL_MS - (now - cur.lastAt)) / 1000) };
   }
   if (cur.count >= RL_LIMIT) {
     return { ok: false, retryAfter: Math.ceil((cur.resetAt - now) / 1000) };
@@ -103,7 +87,6 @@ function checkRateByIp(ip: string): { ok: boolean; retryAfter: number } {
   cur.lastAt = now;
   return { ok: true, retryAfter: Math.ceil((cur.resetAt - now) / 1000) };
 }
-
 function checkGlobalCooldown(): boolean {
   const now = Date.now();
   const last = globalThis.__boardGlobalAt ?? 0;
@@ -111,14 +94,11 @@ function checkGlobalCooldown(): boolean {
   globalThis.__boardGlobalAt = now;
   return true;
 }
-
 function containsUrl(text: string): boolean {
   return /(https?:\/\/|www\.)\S+/i.test(text);
 }
-
 function isDuplicateBody(body: string): boolean {
   const now = Date.now();
-  // 古いエントリ掃除
   for (const [k, exp] of Array.from(recentBodies.entries())) {
     if (exp < now) recentBodies.delete(k);
   }
@@ -128,71 +108,61 @@ function isDuplicateBody(body: string): boolean {
   return false;
 }
 
-// ── Supabase 遅延初期化 ──
+// Supabase
 function getSupabase(): SupabaseClient | null {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
-  const anon =
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
+  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
   if (!url || !anon) return null;
   return createClient(url, anon);
 }
 
-// ── 入力スキーマ ──
+// 入力スキーマ
 const Schema = z.object({
   author: z.string().min(1).max(24),
   body: z.string().min(1).max(500),
-  hp: z.string().optional(), // ハニーポット
+  hp: z.string().optional(),
 });
 
-// ── GET: 最新 50 件（ついでに CSRF クッキーを配布） ──
+// GET: 最新 50 件 + CSRF 配布
 export async function GET() {
   const supabase = getSupabase();
   if (!supabase) {
     return NextResponse.json({ error: "Server is misconfigured" }, { status: 500 });
   }
-
   const { data, error } = await supabase
     .from("messages")
     .select("*")
     .order("created_at", { ascending: false })
     .limit(50);
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   const res = NextResponse.json({ messages: data ?? [] });
 
-  // CSRF 配布：既にあれば再利用、なければ発行
   const ck = await cookies();
   let csrf = ck.get(CSRF_COOKIE)?.value;
   if (!csrf) csrf = randomUUID();
-
   res.cookies.set({
     name: CSRF_COOKIE,
     value: csrf,
-    httpOnly: false, // クライアントJSから読むため
+    httpOnly: false,
     sameSite: "lax",
     secure: SECURE_COOKIE,
     path: "/",
-    maxAge: 60 * 60 * 24, // 1日
+    maxAge: 60 * 60 * 24,
   });
-
   return res;
 }
 
-// ── POST: 新規投稿 ──
+// POST: 新規投稿
 export async function POST(req: Request) {
   if (!POST_ENABLED) {
     return NextResponse.json({ error: "Posting disabled" }, { status: 503 });
   }
-
-  // ブラウザ由来 & 自サイトのみ
   if (!originAllowed(req.headers) || !isBrowserFetch(req.headers) || uaBlocked(req.headers)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  // CSRF（cookie とヘッダ一致）
+  // CSRF
   const csrfHeader = req.headers.get("x-board-csrf") || "";
   const ck = await cookies();
   const csrfCookie = ck.get(CSRF_COOKIE)?.value || "";
@@ -200,7 +170,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "CSRF required" }, { status: 403 });
   }
 
-  // レート制限（IP & 全体クールダウン）
+  // レート制限
   const ip = getIp(req.headers);
   if (!checkGlobalCooldown()) {
     return NextResponse.json({ error: "Please wait a moment" }, { status: 429 });
@@ -213,13 +183,13 @@ export async function POST(req: Request) {
     );
   }
 
-  // JSON 以外拒否
+  // Content-Type
   const ct = req.headers.get("content-type") || "";
   if (!ct.includes("application/json")) {
     return NextResponse.json({ error: "Unsupported Content-Type" }, { status: 415 });
   }
 
-  // 入力検証 & ハニーポット
+  // 入力検証
   let payload: z.infer<typeof Schema>;
   try {
     payload = Schema.parse(await req.json());
@@ -242,17 +212,13 @@ export async function POST(req: Request) {
   if (!supabase) {
     return NextResponse.json({ error: "Server is misconfigured" }, { status: 500 });
   }
-
   const { author, body } = payload;
   const { data, error } = await supabase
     .from("messages")
     .insert({ author, body })
     .select()
     .single();
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   return NextResponse.json({ message: data }, { status: 201 });
 }
