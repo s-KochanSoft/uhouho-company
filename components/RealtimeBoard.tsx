@@ -13,6 +13,7 @@ export default function RealtimeBoard() {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [author, setAuthor] = useState("");
   const [body, setBody] = useState("");
+  const [hp, setHp] = useState(""); // ← ハニーポット
   const [loading, setLoading] = useState(true);
   const [posting, setPosting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -21,24 +22,27 @@ export default function RealtimeBoard() {
 
   // 初回読み込み + 4秒ごとポーリング（簡易リアルタイム）
   const load = async () => {
-  try {
-    const res = await fetch("/api/messages", { cache: "no-store" });
-    // ← 先にJSONを読んで、サーバ側の error メッセージを拾う
-    const json = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      const msg = (json && json.error) ? json.error : `Load failed: ${res.status}`;
-      throw new Error(msg);
+    try {
+      const res = await fetch("/api/messages", { cache: "no-store" });
+      // サーバ側の error メッセージを拾う
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const msg =
+          (json && (json as any).error)
+            ? (json as any).error
+            : `Load failed: ${res.status}`;
+        throw new Error(msg);
+      }
+      const list: Msg[] = (json as any)?.messages ?? [];
+      setMessages(list);
+      setError(null);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "読み込みエラー";
+      setError(msg);
+    } finally {
+      setLoading(false);
     }
-    const list: Msg[] = json?.messages ?? [];
-    setMessages(list);
-    setError(null);
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : "読み込みエラー";
-    setError(msg);
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   useEffect(() => {
     load();
@@ -61,13 +65,14 @@ export default function RealtimeBoard() {
         body: JSON.stringify({
           author: author.trim().slice(0, 24),
           body: body.trim().slice(0, 500),
+          hp, // ← ハニーポットを同送（人間は空のまま）
         }),
       });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json?.error || "投稿に失敗しました");
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error((json as any)?.error || "投稿に失敗しました");
 
       // 先頭に追加（APIの返却: { message } を想定）
-      const saved: Msg | undefined = json?.message;
+      const saved: Msg | undefined = (json as any)?.message;
       if (saved) {
         setMessages((prev) => [saved, ...prev]);
       } else {
@@ -91,7 +96,7 @@ export default function RealtimeBoard() {
       </h2>
 
       {/* 投稿フォーム */}
-      <div className="mt-4 grid grid-cols-1 sm:grid-cols-[160px_1fr_auto] gap-2">
+      <div className="mt-4 grid grid-cols-1 sm:grid-cols-[160px_1fr_auto] gap-2 relative">
         <input
           type="text"
           placeholder="おなまえ（必須）"
@@ -115,6 +120,23 @@ export default function RealtimeBoard() {
         >
           {posting ? "送信中..." : "送信"}
         </button>
+
+        {/* ハニーポット入力（画面外に配置／スクリーンリーダー対象外） */}
+        <div
+          aria-hidden
+          className="absolute -left-[9999px] top-auto h-0 w-0 overflow-hidden"
+        >
+          <label htmlFor="hp">HP</label>
+          <input
+            id="hp"
+            name="hp"
+            type="text"
+            autoComplete="off"
+            tabIndex={-1}
+            value={hp}
+            onChange={(e) => setHp(e.target.value)}
+          />
+        </div>
       </div>
 
       {/* エラー表示（落とさない） */}
