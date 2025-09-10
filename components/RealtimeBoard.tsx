@@ -9,32 +9,54 @@ type Msg = {
   created_at?: string;
 };
 
+type GetMessagesOK = { messages: Msg[] };
+type ErrorRes = { error: string };
+type PostOK = { message: Msg };
+
+// 型ガード（any 使わず unknown を絞る）
+function getErrorMessage(data: unknown): string | null {
+  if (typeof data === "object" && data !== null && "error" in data) {
+    const v = (data as { error?: unknown }).error;
+    return typeof v === "string" ? v : null;
+  }
+  return null;
+}
+function extractMessages(data: unknown): Msg[] {
+  if (typeof data === "object" && data !== null) {
+    const v = (data as { messages?: unknown }).messages;
+    if (Array.isArray(v)) return v as Msg[];
+  }
+  return [];
+}
+function extractSavedMessage(data: unknown): Msg | null {
+  if (typeof data === "object" && data !== null && "message" in data) {
+    const m = (data as { message?: unknown }).message;
+    if (typeof m === "object" && m !== null) return m as Msg;
+  }
+  return null;
+}
+
 export default function RealtimeBoard() {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [author, setAuthor] = useState("");
   const [body, setBody] = useState("");
-  const [hp, setHp] = useState(""); // ← ハニーポット
+  const [hp, setHp] = useState(""); // ハニーポット
   const [loading, setLoading] = useState(true);
   const [posting, setPosting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // 初回読み込み + 4秒ごとポーリング（簡易リアルタイム）
+  // 初回 + 4秒ポーリング
   const load = async () => {
     try {
       const res = await fetch("/api/messages", { cache: "no-store" });
-      // サーバ側の error メッセージを拾う
-      const json = await res.json().catch(() => ({}));
+      const json: unknown = await res.json().catch(() => ({}));
       if (!res.ok) {
-        const msg =
-          (json && (json as any).error)
-            ? (json as any).error
-            : `Load failed: ${res.status}`;
+        const msg = getErrorMessage(json) ?? `Load failed: ${res.status}`;
         throw new Error(msg);
       }
-      const list: Msg[] = (json as any)?.messages ?? [];
-      setMessages(list);
+      setMessages(extractMessages(json));
       setError(null);
     } catch (e) {
       const msg = e instanceof Error ? e.message : "読み込みエラー";
@@ -50,7 +72,6 @@ export default function RealtimeBoard() {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // 投稿
@@ -65,19 +86,20 @@ export default function RealtimeBoard() {
         body: JSON.stringify({
           author: author.trim().slice(0, 24),
           body: body.trim().slice(0, 500),
-          hp, // ← ハニーポットを同送（人間は空のまま）
+          hp, // 人間は空のまま
         }),
       });
-      const json = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error((json as any)?.error || "投稿に失敗しました");
+      const json: unknown = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const msg = getErrorMessage(json) ?? "投稿に失敗しました";
+        throw new Error(msg);
+      }
 
-      // 先頭に追加（APIの返却: { message } を想定）
-      const saved: Msg | undefined = (json as any)?.message;
+      const saved = extractSavedMessage(json);
       if (saved) {
         setMessages((prev) => [saved, ...prev]);
       } else {
-        // 念のためリロード
-        load();
+        await load(); // 念のため再取得
       }
       setBody("");
       setError(null);
@@ -121,7 +143,7 @@ export default function RealtimeBoard() {
           {posting ? "送信中..." : "送信"}
         </button>
 
-        {/* ハニーポット入力（画面外に配置／スクリーンリーダー対象外） */}
+        {/* ハニーポット：画面外に配置 */}
         <div
           aria-hidden
           className="absolute -left-[9999px] top-auto h-0 w-0 overflow-hidden"
@@ -139,7 +161,7 @@ export default function RealtimeBoard() {
         </div>
       </div>
 
-      {/* エラー表示（落とさない） */}
+      {/* エラー表示 */}
       {error && (
         <div className="mt-3 text-sm text-red-400 border border-red-500/40 p-2 bg-red-950/30 rounded">
           {error}
