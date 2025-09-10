@@ -4,23 +4,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { FC, FormEvent } from "react";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
-// ========= 型 =========
-type Message = {
-  id: string;
-  author: string;
-  body: string;
-  created_at: string;
-};
+type Message = { id: string; author: string; body: string; created_at: string };
+type GetMessagesResponse = { messages: Message[] };
+type PostMessageResponse = { message: Message } | { error: string };
 
-type GetMessagesResponse = {
-  messages: Message[];
-};
-
-type PostMessageResponse =
-  | { message: Message }
-  | { error: string };
-
-// ========= Supabase（ブラウザ） =========
 function useSupabase(): SupabaseClient | null {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
   const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
@@ -30,16 +17,14 @@ function useSupabase(): SupabaseClient | null {
   }, [url, anon]);
 }
 
-// ========= Cookie から CSRF を読む =========
 function getCookie(name: string): string | null {
   if (typeof document === "undefined") return null;
   const m = document.cookie.match(
-    new RegExp(`(?:^|; )${name.replace(/[-./*+?^${}()|[\]\\]/g, "\\$&")}=([^;]*)`)
+    new RegExp(`(?:^|; )${name.replace(/[-./*+?^${}()|[\\]\\\\]/g, "\\$&")}=([^;]*)`)
   );
   return m ? decodeURIComponent(m[1]) : null;
 }
 
-// ========= 本体 =========
 const RealtimeBoard: FC = () => {
   const supabase = useSupabase();
   const [messages, setMessages] = useState<Message[]>([]);
@@ -49,21 +34,22 @@ const RealtimeBoard: FC = () => {
   const [banner, setBanner] = useState<{ type: "error" | "info"; text: string } | null>(null);
   const listEndRef = useRef<HTMLDivElement | null>(null);
 
-  // 初期読み込み
   useEffect(() => {
     let aborted = false;
     (async () => {
       try {
-        const res = await fetch("/api/messages", { cache: "no-store" });
+        const res = await fetch("/api/messages", {
+          cache: "no-store",
+          credentials: "same-origin", // ← 追加
+        });
         const json = (await res.json()) as GetMessagesResponse;
         if (!aborted) {
-          // 旧来の「カードに古→新で表示」へ
           const ordered = [...(json.messages ?? [])].sort((a, b) =>
             a.created_at.localeCompare(b.created_at)
           );
           setMessages(ordered);
         }
-      } catch (e) {
+      } catch {
         setBanner({ type: "error", text: "メッセージの取得に失敗しました。" });
       }
     })();
@@ -72,12 +58,10 @@ const RealtimeBoard: FC = () => {
     };
   }, []);
 
-  // 自動スクロール
   useEffect(() => {
     listEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages.length]);
 
-  // Supabase Realtime
   useEffect(() => {
     if (!supabase) return;
     const channel = supabase
@@ -95,13 +79,11 @@ const RealtimeBoard: FC = () => {
         setMessages((prev) => prev.filter((x) => x.id !== del.id));
       })
       .subscribe();
-
     return () => {
       supabase.removeChannel(channel);
     };
   }, [supabase]);
 
-  // 送信
   const onSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!author.trim() || !body.trim()) return;
@@ -118,20 +100,18 @@ const RealtimeBoard: FC = () => {
           "x-board-csrf": csrf,
         },
         body: JSON.stringify({ author: author.trim(), body: body.trim() }),
+        credentials: "same-origin", // ← 追加
       });
 
       if (!res.ok) {
         const json = (await res.json().catch(() => ({}))) as PostMessageResponse;
         const msg =
-          "error" in json && json.error
-            ? json.error
-            : `投稿に失敗しました（${res.status}）`;
+          "error" in json && json.error ? json.error : `投稿に失敗しました（${res.status}）`;
         setBanner({ type: "error", text: msg });
         return;
       }
 
-      // Realtime が流れてくるので手動追加は不要
-      setBody("");
+      setBody(""); // Realtime で流れてくる想定
     } catch {
       setBanner({ type: "error", text: "ネットワークエラーが発生しました。" });
     } finally {
@@ -155,7 +135,6 @@ const RealtimeBoard: FC = () => {
         </div>
       )}
 
-      {/* メッセージリスト（旧来風のカード表示） */}
       <div className="border rounded-lg p-3 h-[60vh] overflow-y-auto bg-white dark:bg-neutral-900">
         {messages.length === 0 ? (
           <p className="text-sm text-neutral-600 dark:text-neutral-300">まだ投稿はありません。</p>
@@ -178,7 +157,6 @@ const RealtimeBoard: FC = () => {
         <div ref={listEndRef} />
       </div>
 
-      {/* 入力フォーム（見た目を“はっきり”に戻す） */}
       <form onSubmit={onSubmit} className="mt-3 grid grid-cols-1 gap-2">
         <input
           type="text"
