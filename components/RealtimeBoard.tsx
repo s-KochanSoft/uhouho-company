@@ -1,141 +1,153 @@
-'use client'
+"use client";
 
-import { useEffect, useRef, useState } from 'react'
-import { supabase } from '@/lib/supabaseClient'
+import { useEffect, useRef, useState } from "react";
 
-type Message = { id: number; author: string; body: string; created_at: string }
+type Msg = {
+  id: string;
+  author: string;
+  body: string;
+  created_at?: string;
+};
 
 export default function RealtimeBoard() {
-  const [messages, setMessages] = useState<Message[]>([])
-  const [author, setAuthor] = useState('')
-  const [body, setBody] = useState('')
-  const submitting = useRef(false)
+  const [messages, setMessages] = useState<Msg[]>([]);
+  const [author, setAuthor] = useState("");
+  const [body, setBody] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [posting, setPosting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetch('/api/messages')
-      .then((r) => r.json())
-      .then((res) => setMessages(res.messages ?? []))
-      .catch(console.error)
-  }, [])
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  useEffect(() => {
-    const channel = supabase
-      .channel('public:messages')
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'messages' },
-        (payload) => {
-          const newMsg = payload.new as Message
-          setMessages((prev) => [newMsg, ...prev].slice(0, 50))
-        }
-      )
-      .subscribe()
-
-    return () => {
-      supabase.removeChannel(channel)
-    }
-  }, [])
-
-  const onSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (submitting.current) return
-    submitting.current = true
-
-    const temp: Message = {
-      id: Date.now(),
-      author: author.trim() || 'anonymous',
-      body: body.trim(),
-      created_at: new Date().toISOString()
-    }
-    if (!temp.body) { submitting.current = false; return }
-
-    setMessages((prev) => [temp, ...prev])
-
+  // 初回読み込み + 4秒ごとポーリング（簡易リアルタイム）
+  const load = async () => {
     try {
-      const res = await fetch('/api/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ author: temp.author, body: temp.body })
-      })
-      const json = await res.json()
-      if (!res.ok) throw new Error(json.error || 'failed')
-    } catch {
-      setMessages((prev) => prev.filter((m) => m.id !== temp.id))
-      alert('投稿に失敗しました')
+      const res = await fetch("/api/messages", { cache: "no-store" });
+      if (!res.ok) throw new Error(`Load failed: ${res.status}`);
+      const json = await res.json();
+      const list: Msg[] = json?.messages ?? [];
+      setMessages(list);
+      setError(null);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "読み込みエラー";
+      setError(msg);
     } finally {
-      submitting.current = false
-      setBody('')
+      setLoading(false);
     }
-  }
+  };
+
+  useEffect(() => {
+    load();
+    timerRef.current = setInterval(load, 4000);
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // 投稿
+  const submit = async () => {
+    if (!author.trim() || !body.trim()) return;
+    if (posting) return;
+    setPosting(true);
+    try {
+      const res = await fetch("/api/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          author: author.trim().slice(0, 24),
+          body: body.trim().slice(0, 500),
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.error || "投稿に失敗しました");
+
+      // 先頭に追加（APIの返却: { message } を想定）
+      const saved: Msg | undefined = json?.message;
+      if (saved) {
+        setMessages((prev) => [saved, ...prev]);
+      } else {
+        // 念のためリロード
+        load();
+      }
+      setBody("");
+      setError(null);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "投稿に失敗しました";
+      setError(msg);
+    } finally {
+      setPosting(false);
+    }
+  };
 
   return (
-    <section className="mx-auto w-full max-w-3xl p-4">
-      <h2 className="text-xl font-bold mb-3">Realtime Board</h2>
+    <section className="rounded-none border-[3px] border-neutral-800 bg-neutral-900 p-4 shadow-[6px_6px_0_0_#1f2937]">
+      <h2 className="text-lg font-extrabold tracking-wide">
+        BOARD <span className="text-lime-300">{"//"}</span> リアルタイム掲示板
+      </h2>
 
-      <form
-        onSubmit={onSubmit}
-        className="mb-4 grid gap-2 sm:grid-cols-[160px_1fr_auto]"
-      >
-        {/* Name */}
+      {/* 投稿フォーム */}
+      <div className="mt-4 grid grid-cols-1 sm:grid-cols-[160px_1fr_auto] gap-2">
         <input
-          className="w-full rounded-md border border-neutral-700 bg-neutral-900
-                     text-neutral-100 placeholder-neutral-500
-                     px-3 py-2 outline-none
-                     focus:border-lime-400 focus:ring-2 focus:ring-lime-400/40"
-          placeholder="Name (任意)"
-          aria-label="お名前"
+          type="text"
+          placeholder="おなまえ（必須）"
+          className="rounded-none border-[3px] border-neutral-800 bg-neutral-950 px-3 py-2 text-sm"
           value={author}
           onChange={(e) => setAuthor(e.target.value)}
           maxLength={24}
-          name="author"
-          autoComplete="name"
         />
-
-        {/* Message */}
         <input
-          className="w-full rounded-md border border-neutral-700 bg-neutral-900
-                     text-neutral-100 placeholder-neutral-500
-                     px-3 py-2 outline-none
-                     focus:border-lime-400 focus:ring-2 focus:ring-lime-400/40"
-          placeholder="メッセージ (最大500文字)"
-          aria-label="メッセージ本文"
+          type="text"
+          placeholder="メッセージ（必須）"
+          className="rounded-none border-[3px] border-neutral-800 bg-neutral-950 px-3 py-2 text-sm"
           value={body}
           onChange={(e) => setBody(e.target.value)}
           maxLength={500}
-          name="body"
-          autoComplete="off"
-          spellCheck={false}
         />
-
         <button
-          type="submit"
-          className="h-[42px] rounded-md border border-neutral-700
-                     bg-lime-400 px-4 font-bold text-neutral-900
-                     shadow-[2px_2px_0_0_#1f2937]
-                     hover:translate-x-[1px] hover:translate-y-[1px]
-                     disabled:opacity-50"
-          disabled={!body.trim()}
+          onClick={submit}
+          disabled={posting || !author.trim() || !body.trim()}
+          className="rounded-none border-[3px] border-neutral-800 bg-lime-400 px-4 py-2 font-extrabold text-neutral-900 shadow-[4px_4px_0_0_#1f2937] disabled:opacity-50"
         >
-          投稿
+          {posting ? "送信中..." : "送信"}
         </button>
-      </form>
+      </div>
 
-      <ul className="space-y-3">
-        {messages.map((m) => (
-          <li key={m.id} className="rounded-xl border border-neutral-800 bg-neutral-900 p-3">
-            <div className="text-sm text-neutral-400">
-              <span className="font-medium text-neutral-100">{m.author}</span>
-              <span className="mx-1">•</span>
-              <time dateTime={m.created_at}>
-                {new Date(m.created_at).toLocaleString()}
-              </time>
-            </div>
-            <p className="mt-1 whitespace-pre-wrap break-words text-neutral-100">
-              {m.body}
-            </p>
-          </li>
-        ))}
-      </ul>
+      {/* エラー表示（落とさない） */}
+      {error && (
+        <div className="mt-3 text-sm text-red-400 border border-red-500/40 p-2 bg-red-950/30 rounded">
+          {error}
+        </div>
+      )}
+
+      {/* メッセージ一覧 */}
+      <div className="mt-4">
+        {loading ? (
+          <div className="text-sm text-neutral-400">読み込み中...</div>
+        ) : messages.length === 0 ? (
+          <div className="text-sm text-neutral-400">まだ投稿がありません。</div>
+        ) : (
+          <ul className="space-y-2">
+            {messages.map((m) => (
+              <li
+                key={m.id}
+                className="border-[3px] border-neutral-800 bg-neutral-950 p-3 shadow-[4px_4px_0_0_#1f2937]"
+              >
+                <div className="text-xs text-neutral-500">
+                  {m.created_at
+                    ? new Date(m.created_at).toLocaleString("ja-JP")
+                    : ""}
+                </div>
+                <div>
+                  <span className="font-bold">{m.author}</span>
+                  <span className="mx-2 text-neutral-600">{"//"}</span>
+                  <span>{m.body}</span>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </section>
-  )
+  );
 }
