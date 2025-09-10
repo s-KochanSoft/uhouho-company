@@ -1,4 +1,4 @@
-# --- Builder stage ---
+# --- Builder ---
 FROM node:20-bookworm-slim AS builder
 WORKDIR /app
 
@@ -10,18 +10,22 @@ RUN npm ci
 COPY . ./
 RUN npm run build
 
-# --- Runner stage ---
+# --- Runner ---
 FROM node:20-bookworm-slim AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
-# ★ ここで PORT は設定しない（Render が注入する PORT を使う）
+# ★ Render が注入する $PORT をそのまま使う。ここで PORT を固定しない
 
-# standalone 出力を配置
-COPY --from=builder /app/.next/standalone ./
+# 本番依存だけインストール
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev
+
+# 実行に必要な成果物をコピー
+COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
-COPY --from=builder /app/.next/static ./.next/static
+COPY --from=builder /app/server.js ./server.js
 
 EXPOSE 3000
 CMD ["node", "server.js"]
